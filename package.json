@@ -1,0 +1,18 @@
+{
+  "name": "tsl-car-conf",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "McLaren Artura WebGPU car configurator (three.js TSL)",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "three": "^0.180.0"
+  },
+  "devDependencies": {
+    "vite": "^6.3.5"
+  }
+}
