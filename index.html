@@ -1,68 +1,354 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#eef0f2">
-<title>WebGPU+Car Configuration+行歌</title><meta name="description" content="Explore the McLaren Artura. Personalize its finish, discover every detail, and sculpt it with light.">
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2317191b'/%3E%3Cpath d='M12 46 31 16h10L30 34h17l-8 12H12Z' fill='%23ff7900'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="/src/style.css">
-</head>
-<body>
-<div class="app" id="app">
-<header class="header"><a class="wordmark" href="/" aria-label="McLaren Artura Home">McLaren<span class="speedmark" aria-hidden="true"></span></a><div class="header-title">CAR CONFIGURATION BY <a href="https://www.xingor.dev" target="_blank" rel="noopener">行歌</a> @2026</div><span class="edition">ARTURA <i></i> 01</span></header>
-<main>
-<section class="stage" aria-label="McLaren Artura 3D experience">
-<div id="scene" tabindex="0" role="img" aria-label="Interactive McLaren Artura. Drag to rotate, scroll to zoom. Arrow keys to orbit, plus and minus to zoom."></div>
-<div class="model-heading"><span class="eyebrow">McLAREN AUTOMOTIVE</span><h1>Artura<span>.</span></h1><p>Performance. In every detail.</p></div>
-<div class="studio-selector" role="group" aria-label="Studio lighting"><button id="day" class="active" aria-pressed="true" title="Daylight studio"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg><span>Day</span></button><button id="night" aria-pressed="false" title="Night studio"><svg viewBox="0 0 24 24"><path d="M20.5 14A9 9 0 0 1 10 3.5 9 9 0 1 0 20.5 14Z"/></svg><span>Night</span></button></div>
-<div class="loader" id="loader"><div class="loader-word">ARTURA</div><span id="load-label">Preparing your Artura</span><div class="load-track"><i id="load-progress"></i></div><button id="retry" hidden>Try again</button></div>
-<div class="focus-caption" id="focus-caption"><span class="caption-index" id="focus-number">01 / 06</span><span id="focus-name">Overview</span></div>
-<div class="stage-bottom"><div class="orbit-hint"><svg viewBox="0 0 24 24"><path d="M3 10c0-3 4-5 9-5s9 2 9 5-4 5-9 5H5m0 0 3-3m-3 3 3 3"/></svg><span>Drag to explore · Scroll to zoom</span></div><button id="reset" class="reset" aria-label="Reset camera to Overview"><svg viewBox="0 0 24 24"><path d="M4 10a8 8 0 1 1 1 7M4 4v6h6"/></svg><span>Reset view</span></button></div>
-<nav class="views" aria-label="Explore the details">
-<button class="view active" data-view="overview" aria-pressed="true"><span class="view-index">01</span><span>Overview</span></button>
-<button class="view" data-view="front" aria-pressed="false"><span class="view-index">02</span><span>Front signature</span></button>
-<button class="view" data-view="wheels" aria-pressed="false"><span class="view-index">03</span><span>Forged wheels</span></button>
-<button class="view" data-view="side" aria-pressed="false"><span class="view-index">04</span><span>Aerodynamics</span></button>
-<button class="view" data-view="cockpit" aria-pressed="false"><span class="view-index">05</span><span>Cockpit</span></button>
-<button class="view" data-view="rear" aria-pressed="false"><span class="view-index">06</span><span>Rear design</span></button>
-</nav>
-</section>
-<aside class="configuration" aria-label="Vehicle configuration">
-<div class="config-intro"><span class="eyebrow">MAKE IT YOURS</span><h2>Your Artura.<br>Your expression.</h2></div>
-<section class="paint-section"><div class="section-title"><h3>Exterior finish</h3><span id="paint-counter">01 — 06</span></div><div class="swatches" role="group" aria-label="Choose a paint finish">
-<button class="swatch selected" data-color="papaya" style="--paint:#f47821" aria-label="Papaya Spark Metallic" aria-pressed="true"><span></span></button>
-<button class="swatch" data-color="lime" style="--paint:#aac626" aria-label="Lime Green Metallic" aria-pressed="false"><span></span></button>
-<button class="swatch" data-color="blue" style="--paint:#266690" aria-label="Aurora Blue Metallic" aria-pressed="false"><span></span></button>
-<button class="swatch" data-color="white" style="--paint:#eeeeeb" aria-label="Silica White Pearlescent" aria-pressed="false"><span></span></button>
-<button class="swatch" data-color="silver" style="--paint:#828b94" aria-label="Titanium Silver Metallic" aria-pressed="false"><span></span></button>
-<button class="swatch" data-color="black" style="--paint:#232529" aria-label="Onyx Black Metallic" aria-pressed="false"><span></span></button>
-</div><div class="paint-description"><h4 id="paint-name">Papaya Spark</h4><p id="paint-subtitle">Metallic <span>·</span> Signature finish</p></div><div class="paint-line"><span id="paint-line-color"></span></div></section>
-<section class="light-section"><div><h3>Lighting</h3><p id="lights-label">Signature LEDs & rear lights</p></div><button id="lights" class="toggle" role="switch" aria-checked="false" aria-label="Turn headlights on"><span></span></button></section>
-<div class="config-note"><span class="note-line"></span><p>Defined by light.<br>Expressed in colour.</p></div>
-<div class="current-selection"><div><span class="eyebrow">YOUR CONFIGURATION</span><strong id="summary-color">Papaya Spark</strong></div><span class="color-chip" id="summary-chip"></span></div>
-</aside>
-</main>
-<aside id="debug" class="debug" hidden aria-label="Debug controls">
-<div class="debug-head"><strong>DEBUG</strong><span>#debug</span><button id="debug-close" type="button" aria-label="Close debug panel">✕</button></div>
-<div class="debug-body">
-<div class="debug-group"><h5>Environment</h5>
-<label for="dbg-env">Environment intensity <output id="dbg-env-out">1.00×</output></label><input id="dbg-env" type="range" min="0" max="3" step=".05" value="1">
-<label for="dbg-ambient">Ambient light <output id="dbg-ambient-out">1.00×</output></label><input id="dbg-ambient" type="range" min="0" max="4" step=".05" value="1">
-<label for="dbg-exposure">Exposure <output id="dbg-exposure-out">1.30</output></label><input id="dbg-exposure" type="range" min=".2" max="2.5" step=".01" value="1.3">
-</div>
-<div class="debug-group"><h5>Paint clearcoat</h5>
-<label for="dbg-coat">Clearcoat <output id="dbg-coat-out">1.00</output></label><input id="dbg-coat" type="range" min="0" max="10" step=".01" value="1">
-<label for="dbg-coat-r">Clearcoat roughness <output id="dbg-coat-r-out">0.000</output></label><input id="dbg-coat-r" type="range" min="0" max=".4" step=".005" value="0">
-<label for="dbg-envmap">Paint envMap intensity <output id="dbg-envmap-out">1.90</output></label><input id="dbg-envmap" type="range" min="0" max="3" step=".05" value="1.9">
-</div>
-<div class="debug-group"><h5>Bloom</h5>
-<label for="dbg-bloom">Strength <output id="dbg-bloom-out">0.10</output></label><input id="dbg-bloom" type="range" min="0" max="4" step=".01" value="0.1">
-<label for="dbg-bloom-r">Radius <output id="dbg-bloom-r-out">0.15</output></label><input id="dbg-bloom-r" type="range" min="0" max="1" step=".01" value=".15">
-<label for="dbg-bloom-t">Threshold <output id="dbg-bloom-t-out">0.50</output></label><input id="dbg-bloom-t" type="range" min="0" max="6" step=".01" value=".5">
-</div>
-</div>
-<div class="debug-foot"><button id="debug-copy" type="button">Copy values</button><button id="debug-reset" type="button">Reset</button><output id="debug-status"></output></div>
-</aside>
-<div class="sr-only" id="announcement" aria-live="polite"></div>
-</div>
-<script type="module" src="/src/main.js"></script>
-</body></html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#eef0f2" />
+    <title>3D Car Configurator 行歌</title>
+    <meta
+      name="description"
+      content="Explore the McLaren Artura. Personalize its finish, discover every detail, and sculpt it with light."
+    />
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2317191b'/%3E%3Cpath d='M12 46 31 16h10L30 34h17l-8 12H12Z' fill='%23ff7900'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div class="app" id="app">
+      <header class="header">
+        <a class="wordmark" href="/" aria-label="McLaren Artura Home"
+          >McLaren<span class="speedmark" aria-hidden="true"></span
+        ></a>
+        <div class="header-title">
+          CAR CONFIGURATION BY
+          <a href="https://www.xingor.dev" target="_blank" rel="noopener"
+            >行歌</a
+          >
+          @2026
+        </div>
+        <span class="edition">ARTURA <i></i> 01</span>
+      </header>
+      <main>
+        <section class="stage" aria-label="McLaren Artura 3D experience">
+          <div
+            id="scene"
+            tabindex="0"
+            role="img"
+            aria-label="Interactive McLaren Artura. Drag to rotate, scroll to zoom. Arrow keys to orbit, plus and minus to zoom."
+          ></div>
+          <div class="model-heading">
+            <span class="eyebrow">McLAREN AUTOMOTIVE</span>
+            <h1>Artura<span>.</span></h1>
+            <p>Performance. In every detail.</p>
+          </div>
+          <div
+            class="studio-selector"
+            role="group"
+            aria-label="Studio lighting"
+          >
+            <button
+              id="day"
+              class="active"
+              aria-pressed="true"
+              title="Daylight studio"
+            >
+              <svg viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="4" />
+                <path
+                  d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"
+                /></svg
+              ><span>Day</span></button
+            ><button id="night" aria-pressed="false" title="Night studio">
+              <svg viewBox="0 0 24 24">
+                <path d="M20.5 14A9 9 0 0 1 10 3.5 9 9 0 1 0 20.5 14Z" /></svg
+              ><span>Night</span>
+            </button>
+          </div>
+          <div class="loader" id="loader">
+            <div class="loader-word">ARTURA</div>
+            <span id="load-label">Preparing your Artura</span>
+            <div class="load-track"><i id="load-progress"></i></div>
+            <button id="retry" hidden>Try again</button>
+          </div>
+          <div class="focus-caption" id="focus-caption">
+            <span class="caption-index" id="focus-number">01 / 06</span
+            ><span id="focus-name">Overview</span>
+          </div>
+          <div class="stage-bottom">
+            <div class="orbit-hint">
+              <svg viewBox="0 0 24 24">
+                <path
+                  d="M3 10c0-3 4-5 9-5s9 2 9 5-4 5-9 5H5m0 0 3-3m-3 3 3 3"
+                /></svg
+              ><span>Drag to explore · Scroll to zoom</span>
+            </div>
+            <button
+              id="reset"
+              class="reset"
+              aria-label="Reset camera to Overview"
+            >
+              <svg viewBox="0 0 24 24">
+                <path d="M4 10a8 8 0 1 1 1 7M4 4v6h6" /></svg
+              ><span>Reset view</span>
+            </button>
+          </div>
+          <nav class="views" aria-label="Explore the details">
+            <button
+              class="view active"
+              data-view="overview"
+              aria-pressed="true"
+            >
+              <span class="view-index">01</span><span>Overview</span>
+            </button>
+            <button class="view" data-view="front" aria-pressed="false">
+              <span class="view-index">02</span><span>Front signature</span>
+            </button>
+            <button class="view" data-view="wheels" aria-pressed="false">
+              <span class="view-index">03</span><span>Forged wheels</span>
+            </button>
+            <button class="view" data-view="side" aria-pressed="false">
+              <span class="view-index">04</span><span>Aerodynamics</span>
+            </button>
+            <button class="view" data-view="cockpit" aria-pressed="false">
+              <span class="view-index">05</span><span>Cockpit</span>
+            </button>
+            <button class="view" data-view="rear" aria-pressed="false">
+              <span class="view-index">06</span><span>Rear design</span>
+            </button>
+          </nav>
+        </section>
+        <aside class="configuration" aria-label="Vehicle configuration">
+          <div class="config-intro">
+            <span class="eyebrow">MAKE IT YOURS</span>
+            <h2>Your Artura.<br />Your expression.</h2>
+          </div>
+          <section class="paint-section">
+            <div class="section-title">
+              <h3>Exterior finish</h3>
+              <span id="paint-counter">01 — 06</span>
+            </div>
+            <div
+              class="swatches"
+              role="group"
+              aria-label="Choose a paint finish"
+            >
+              <button
+                class="swatch selected"
+                data-color="papaya"
+                style="--paint: #f47821"
+                aria-label="Papaya Spark Metallic"
+                aria-pressed="true"
+              >
+                <span></span>
+              </button>
+              <button
+                class="swatch"
+                data-color="lime"
+                style="--paint: #aac626"
+                aria-label="Lime Green Metallic"
+                aria-pressed="false"
+              >
+                <span></span>
+              </button>
+              <button
+                class="swatch"
+                data-color="blue"
+                style="--paint: #266690"
+                aria-label="Aurora Blue Metallic"
+                aria-pressed="false"
+              >
+                <span></span>
+              </button>
+              <button
+                class="swatch"
+                data-color="white"
+                style="--paint: #eeeeeb"
+                aria-label="Silica White Pearlescent"
+                aria-pressed="false"
+              >
+                <span></span>
+              </button>
+              <button
+                class="swatch"
+                data-color="silver"
+                style="--paint: #828b94"
+                aria-label="Titanium Silver Metallic"
+                aria-pressed="false"
+              >
+                <span></span>
+              </button>
+              <button
+                class="swatch"
+                data-color="black"
+                style="--paint: #232529"
+                aria-label="Onyx Black Metallic"
+                aria-pressed="false"
+              >
+                <span></span>
+              </button>
+            </div>
+            <div class="paint-description">
+              <h4 id="paint-name">Papaya Spark</h4>
+              <p id="paint-subtitle">
+                Metallic <span>·</span> Signature finish
+              </p>
+            </div>
+            <div class="paint-line"><span id="paint-line-color"></span></div>
+          </section>
+          <section class="light-section">
+            <div>
+              <h3>Lighting</h3>
+              <p id="lights-label">Signature LEDs & rear lights</p>
+            </div>
+            <button
+              id="lights"
+              class="toggle"
+              role="switch"
+              aria-checked="false"
+              aria-label="Turn headlights on"
+            >
+              <span></span>
+            </button>
+          </section>
+          <div class="config-note">
+            <span class="note-line"></span>
+            <p>Defined by light.<br />Expressed in colour.</p>
+          </div>
+          <div class="current-selection">
+            <div>
+              <span class="eyebrow">YOUR CONFIGURATION</span
+              ><strong id="summary-color">Papaya Spark</strong>
+            </div>
+            <span class="color-chip" id="summary-chip"></span>
+          </div>
+        </aside>
+      </main>
+      <aside id="debug" class="debug" hidden aria-label="Debug controls">
+        <div class="debug-head">
+          <strong>DEBUG</strong><span>#debug</span
+          ><button
+            id="debug-close"
+            type="button"
+            aria-label="Close debug panel"
+          >
+            ✕
+          </button>
+        </div>
+        <div class="debug-body">
+          <div class="debug-group">
+            <h5>Environment</h5>
+            <label for="dbg-env"
+              >Environment intensity
+              <output id="dbg-env-out">1.00×</output></label
+            ><input
+              id="dbg-env"
+              type="range"
+              min="0"
+              max="3"
+              step=".05"
+              value="1"
+            />
+            <label for="dbg-ambient"
+              >Ambient light <output id="dbg-ambient-out">1.00×</output></label
+            ><input
+              id="dbg-ambient"
+              type="range"
+              min="0"
+              max="4"
+              step=".05"
+              value="1"
+            />
+            <label for="dbg-exposure"
+              >Exposure <output id="dbg-exposure-out">1.30</output></label
+            ><input
+              id="dbg-exposure"
+              type="range"
+              min=".2"
+              max="2.5"
+              step=".01"
+              value="1.3"
+            />
+          </div>
+          <div class="debug-group">
+            <h5>Paint clearcoat</h5>
+            <label for="dbg-coat"
+              >Clearcoat <output id="dbg-coat-out">1.00</output></label
+            ><input
+              id="dbg-coat"
+              type="range"
+              min="0"
+              max="10"
+              step=".01"
+              value="1"
+            />
+            <label for="dbg-coat-r"
+              >Clearcoat roughness
+              <output id="dbg-coat-r-out">0.000</output></label
+            ><input
+              id="dbg-coat-r"
+              type="range"
+              min="0"
+              max=".4"
+              step=".005"
+              value="0"
+            />
+            <label for="dbg-envmap"
+              >Paint envMap intensity
+              <output id="dbg-envmap-out">1.90</output></label
+            ><input
+              id="dbg-envmap"
+              type="range"
+              min="0"
+              max="3"
+              step=".05"
+              value="1.9"
+            />
+          </div>
+          <div class="debug-group">
+            <h5>Bloom</h5>
+            <label for="dbg-bloom"
+              >Strength <output id="dbg-bloom-out">0.10</output></label
+            ><input
+              id="dbg-bloom"
+              type="range"
+              min="0"
+              max="4"
+              step=".01"
+              value="0.1"
+            />
+            <label for="dbg-bloom-r"
+              >Radius <output id="dbg-bloom-r-out">0.15</output></label
+            ><input
+              id="dbg-bloom-r"
+              type="range"
+              min="0"
+              max="1"
+              step=".01"
+              value=".15"
+            />
+            <label for="dbg-bloom-t"
+              >Threshold <output id="dbg-bloom-t-out">0.50</output></label
+            ><input
+              id="dbg-bloom-t"
+              type="range"
+              min="0"
+              max="6"
+              step=".01"
+              value=".5"
+            />
+          </div>
+        </div>
+        <div class="debug-foot">
+          <button id="debug-copy" type="button">Copy values</button
+          ><button id="debug-reset" type="button">Reset</button
+          ><output id="debug-status"></output>
+        </div>
+      </aside>
+      <div class="sr-only" id="announcement" aria-live="polite"></div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
