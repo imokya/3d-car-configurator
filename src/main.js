@@ -89,9 +89,11 @@ let renderer,
   bloom,
   car,
   animation = null,
-  lightAmount = 0,
-  nightAmount = 0,
-  aeroAmount = 0,
+  // 混合系数初值必须与 state 的目标状态一致，否则加载后头 1~2 秒会以旧状态渲染、
+  // 再平滑过渡到目标状态——夜间亮度主要靠金属的环境反射，这段差值在轮子上最显眼。
+  lightAmount = 0, // = state.lights
+  nightAmount = state.studio === "night" ? 1 : 0, // = state.studio；此前固定 0，开场先按白天渲染再暗下来
+  aeroAmount = 0, // = state.aero
   raf = 0;
 let glassMaterials = [],
   paintMaterials = [],
@@ -110,10 +112,10 @@ const TUNING = {
   envIntensityDay: 0.85, // 白天环境强度基线
   envNightDrop: 0.5, // 夜间从基线下降的幅度
   ambientScale: 1, // 半球环境光倍率
-  envScale: 1.7, // HDRI 环境强度倍率（debug 面板 Environment intensity 滑块默认值）
+  envScale: 2, // HDRI 环境强度倍率（debug 面板 Environment intensity 滑块默认值）
   exposure: 1.5, // 初始曝光 = debug 面板 Exposure 滑块默认值
   bloomStrength: 0.2,
-  bloomRadius: 0.15,
+  bloomRadius: 0.07,
   bloomThreshold: 0.5,
   // 大灯（点击灯光按钮点亮）：车前地面的一滩光斑 + 灯罩周围一点点溢光
   // 位置/朝向/角度均已回退到原实现（顶点在灯罩处、目标 8m 外，光斑落在车前 4~8m）
@@ -470,7 +472,8 @@ function cameraPosition(p) {
     const dir = v.clone().sub(target).normalize();
     const dist = Math.min(
       SIDE_FIT.cap,
-      SIDE_FIT.near + (SIDE_FIT.dist - SIDE_FIT.near) * (SIDE_FIT.aspect / aspect),
+      SIDE_FIT.near +
+        (SIDE_FIT.dist - SIDE_FIT.near) * (SIDE_FIT.aspect / aspect),
     );
     v.copy(target).addScaledVector(dir, dist);
   }
@@ -745,7 +748,7 @@ async function init() {
   const sceneColor = scenePass.getTextureNode("output");
   // Bloom. Left out of the output graph it never renders, which is a cheap way to A/B it.
   const BLOOM_ENABLED = true;
-  bloom = bloomNode(sceneColor, 0.1, 0.15, 0.5);
+  bloom = bloomNode(sceneColor, 0.15, 0.07, 0.5);
   composer.outputNode = BLOOM_ENABLED ? sceneColor.add(bloom) : sceneColor;
   const draco = new DRACOLoader();
   draco.setDecoderPath(`${import.meta.env.BASE_URL}draco/`);
@@ -911,7 +914,8 @@ async function init() {
           const lf = src[i][Math.max(0, j - 1)];
           const rt = src[i][Math.min(lateralSamples - 1, j + 1)];
           // 纵向权重更高（车长方向的起伏最需要顺），横向只做很轻的过渡，免得把侧缘抬平
-          profile[i][j] = (up + dn) * 0.235 + (lf + rt) * 0.03 + src[i][j] * 0.47;
+          profile[i][j] =
+            (up + dn) * 0.235 + (lf + rt) * 0.03 + src[i][j] * 0.47;
         }
     }
     for (let i = 0; i < stations; i++)
@@ -923,10 +927,7 @@ async function init() {
   // 如果改成"每次查询都取邻域最大"，最大值在相邻节点间跳变，曲线就会一格一格地出现折点
   const inflated = [];
   {
-    const radius = Math.max(
-      1,
-      Math.round((L * TUNING.aeroReach) / duCS),
-    );
+    const radius = Math.max(1, Math.round((L * TUNING.aeroReach) / duCS));
     const k = H * 0.05;
     for (let i = 0; i < stations; i++) {
       const row = [];
@@ -1143,7 +1144,13 @@ async function init() {
     const wAt = (t) => {
       if (t < 0) return hermite(wN, (wN - wNi) * -a0, wN * 0.95, 0, t / a0);
       if (t > 1)
-        return hermite(wT, (wT - wTi) * (b0 - 1), wT * 1.1, 0, (t - 1) / (b0 - 1));
+        return hermite(
+          wT,
+          (wT - wTi) * (b0 - 1),
+          wT * 1.1,
+          0,
+          (t - 1) / (b0 - 1),
+        );
       return latAt(t);
     };
     // 纵向：同样用 Hermite —— 首端斜率接住车身段（C1 连续），远端平滑地下压
@@ -1188,10 +1195,7 @@ async function init() {
         L * 0.58,
       );
       const floorY =
-        (clearanceY(
-          carLengthAxisX ? p.x : p.z,
-          carLengthAxisX ? p.z : p.x,
-        ) +
+        (clearanceY(carLengthAxisX ? p.x : p.z, carLengthAxisX ? p.z : p.x) +
           H * TUNING.aeroFloor) *
           (1 - out) -
         H * 0.6 * out;
@@ -1273,13 +1277,15 @@ async function init() {
   // 前沿外侧留一圈半透明渗透、前沿上压一道略深的「湿边」并让漆面稍失镜面感 —— 读起来
   // 才是水墨，而不是一块渐变的遮罩。全部在物体世界空间采样，跨钣金无接缝。
   const inkSeed = uniform(
-    carBox.getCenter(new THREE.Vector3()).add(
-      new THREE.Vector3(
-        TUNING.inkSeed[0] * carSize.x * 0.5,
-        TUNING.inkSeed[1] * carSize.y * 0.5,
-        TUNING.inkSeed[2] * carSize.z * 0.5,
+    carBox
+      .getCenter(new THREE.Vector3())
+      .add(
+        new THREE.Vector3(
+          TUNING.inkSeed[0] * carSize.x * 0.5,
+          TUNING.inkSeed[1] * carSize.y * 0.5,
+          TUNING.inkSeed[2] * carSize.z * 0.5,
+        ),
       ),
-    ),
   );
   const inkFrom = uniform(new THREE.Color(paints[state.color].hex)); // 变色前颜色
   const inkTo = uniform(new THREE.Color(paints[state.color].hex)); // 变色后颜色
@@ -1417,19 +1423,30 @@ async function init() {
         clearcoatRoughness: 0.22,
       });
     else if (name === "rim")
+      // 轮毂发亮根因：金属面镜面反射峰值 ∝ 基色 × envMapIntensity，清漆层再叠一层与基色无关的
+      // 白色锐利高光（clearcoat 0.5 ≈ 3 倍白闪）。转到特定方位时整组辐条正好反射 HDRI 亮光柱，
+      // HDR 冲过 bloom 阈值 0.5 → 单个轮毂泛光，orbit 滑走就恢复。压 envMapIntensity + 收清漆
+      // 是全角度物理降压，不靠某个机位标定。
       m = new THREE.MeshPhysicalMaterial({
         ...basic,
         color: "#45494e",
         metalness: 0.95,
-        roughness: 0.23,
-        clearcoat: 0.5,
+        roughness: 0.32,
+        clearcoat: 0.15,
+        envMapIntensity: 0.55,
       });
     else if (name === "Material.003")
-      m = new THREE.MeshStandardMaterial({
+      // 轮胎（GLB 里没名字，叫 Material.003）：哑光橡胶，色深、几乎无镜面。
+      // 用 Physical 是因为 specularIntensity/clearcoat 只在 Physical 上存在（Standard 上赋值会静默失效），
+      // 清漆层会给胎肩添一圈与基色无关的白闪，转视角时最容易被读成「某个轮子在发光」。
+      m = new THREE.MeshPhysicalMaterial({
         ...basic,
         color: "#171a1e",
         metalness: 0,
-        roughness: 0.87,
+        roughness: 0.92,
+        clearcoat: 0,
+        envMapIntensity: 0.5,
+        specularIntensity: 0.35,
       });
     else if (name === "leather_b")
       m = new THREE.MeshStandardMaterial({
@@ -1439,20 +1456,27 @@ async function init() {
         roughness: 0.85,
       });
     else if (name === "brake_disc")
+      // 刹车盘 F0≈0.14 且从轮辐缝隙里正对相机，是轮区最大的镜面反射面；
+      // 压 envMapIntensity + 摊粗糙度，避免某个方位扫过 HDRI 亮光柱时整盘发白（注意 Standard 无 specularIntensity）
       m = new THREE.MeshStandardMaterial({
         ...basic,
         color: "#666b6d",
         metalness: 0.86,
-        roughness: 0.43,
+        roughness: 0.55,
+        envMapIntensity: 0.4,
       });
     else if (name.startsWith("carpaint_"))
+      // 刹车卡钳：橙色是刻意点缀，但 #e58921(线性反射率0.35)+metalness0.45+clearcoat0.5 让它成为
+      // 夜间场景里轮区最亮的可见面（遮挡感知实测 HDR 0.57~0.64，超过 bloom 阈值 0.5 → 泛光 halo，
+      // 初始视角下读成「某个轮毂自己发光」，orbit 转过轮辐/高光滑走才正常）。
+      // 压暗基色 + 收清漆，让它落在 bloom 阈值之下，回到「深色轮毂里的橙色点缀」。嫌暗就抬 color。
       m = new THREE.MeshPhysicalMaterial({
         ...basic,
-        color: "#e58921",
+        color: "#b36616",
         map: src.map,
-        metalness: 0.45,
-        roughness: 0.3,
-        clearcoat: 0.5,
+        metalness: 0.25,
+        roughness: 0.42,
+        clearcoat: 0.2,
       });
     else if (["turn_signal", "brake_light", "SBBR_middle"].includes(name)) {
       const front = ["turn_signal", "headlight_chrome"].includes(name);
