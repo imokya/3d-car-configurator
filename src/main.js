@@ -77,7 +77,7 @@ const state = {
   view: "overview",
   lights: false,
   studio: "night",
-  aero: false,
+  aero: true, // 默认开启流线（风阻）效果
   transitioning: false,
 };
 let renderer,
@@ -93,7 +93,7 @@ let renderer,
   // 再平滑过渡到目标状态——夜间亮度主要靠金属的环境反射，这段差值在轮子上最显眼。
   lightAmount = 0, // = state.lights
   nightAmount = state.studio === "night" ? 1 : 0, // = state.studio；此前固定 0，开场先按白天渲染再暗下来
-  aeroAmount = 0, // = state.aero
+  aeroAmount = state.aero ? 1 : 0, // = state.aero；默认开启，初值必须是 1，否则开场会先渲染无流线的亮场景再淡入
   raf = 0;
 let glassMaterials = [],
   paintMaterials = [],
@@ -453,11 +453,11 @@ function setStudio(mode) {
   }
   announce(mode === "day" ? "Daylight studio" : "Night studio");
 }
-function setAero(on) {
+function setAero(on, silent = false) {
   state.aero = Boolean(on);
   $("#aero").classList.toggle("active", state.aero);
   $("#aero").setAttribute("aria-pressed", String(state.aero));
-  announce(state.aero ? "Aerodynamics mode" : "Studio mode");
+  if (!silent) announce(state.aero ? "Aerodynamics mode" : "Studio mode");
 }
 function cameraPosition(p) {
   const v = new THREE.Vector3(...p.pos);
@@ -531,6 +531,7 @@ $("#day").addEventListener("click", () => setStudio("day"));
 $("#night").addEventListener("click", () => setStudio("night"));
 $("#aero").addEventListener("click", () => setAero(!state.aero));
 setStudio(state.studio); // 同步初始 UI 状态（默认夜间模式）
+setAero(state.aero, true); // 同步初始 UI 状态（默认开启流线效果）
 $("#reset").addEventListener("click", () => focusPart("overview"));
 $("#retry").addEventListener("click", () => location.reload());
 function fail(e) {
