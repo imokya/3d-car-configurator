@@ -28,6 +28,7 @@ import {
   normalWorld,
 } from "three/tsl";
 import { bloom as bloomNode } from "three/addons/tsl/display/BloomNode.js";
+import { hashBlur } from "three/addons/tsl/display/hashBlur.js";
 
 const $ = (s) => document.querySelector(s);
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -228,10 +229,21 @@ const bgDay = new THREE.Color("#b8bec6"),
 // 机位预设：pos/target 都是「车已摆好」后的世界坐标（车头朝 +Z、轮胎底 y=0）
 // 这几组角度是按场景真实灯光（主光在右前上方、两条长条面光、HDRI 主光箱在左前上方）算出来的：
 // 目标 = 可见面尽量落在受光侧 + 车身能反射到柔光箱 + 长条面光的高光落在肩线上，且整车不出画
-// 正侧面机位的取景常数：dist 是 1.78 宽高比下的相机距离；车身长边横铺（半长 2.244m、
-// 近侧翼子板距相机平面约 1.0m），所以窗口一变窄就得按 (dist-near) 等比退远，
-// 否则水平视野装不下车长、车头车尾会被切掉。cap 同时要低于 controls.maxDistance。
-const SIDE_FIT = { dist: 6.25, near: 1.0, aspect: 1.78, cap: 11.4 };
+// 正侧面机位的取景常数：dist 是 1.78 宽高比下的相机距离（整车轮廓占屏宽 79%）；
+// 窗口一变窄就按「可见半宽 = extent」反推退远距离，否则水平视野装不下车长、
+// 车头车尾会被切掉。extent = 车身半长 2.244m + 两侧余量。cap 同时要低于 controls.maxDistance。
+const SIDE_FIT = { dist: 6.25, aspect: 1.78, cap: 12.5, extent: 2.9 };
+// 手机竖屏（aspect<1）时垂直 fov 固定 30° 会导致水平视野极窄：Aero 侧面要退到 ~20m
+// 才装得下车长（被 cap 切掉），Front/Wheels 等机位的车身两侧也会出画。
+// 所以竖屏按比例放宽垂直 fov，使水平视野不小于 1.15 宽高比横屏的水平视野，上限 52° 防畸变。
+function targetFov() {
+  const aspect = host.clientWidth / host.clientHeight;
+  if (aspect >= 1) return 30;
+  const h = THREE.MathUtils.radToDeg(
+    2 * Math.atan((Math.tan(THREE.MathUtils.degToRad(15)) * 1.15) / aspect),
+  );
+  return Math.min(52, h);
+}
 const presets = {
   overview: { pos: [4.0, 1.71, 4.4], target: [0, 0.68, 0], name: "Overview" },
   front: {
@@ -463,17 +475,18 @@ function cameraPosition(p) {
   const v = new THREE.Vector3(...p.pos);
   const aspect = host.clientWidth / host.clientHeight;
   if (aspect < 1.05 && state.view === "overview") {
-    v.multiplyScalar(1.34);
+    // 竖屏 fov 已放宽，退远系数相应收小，避免整车缩得过小
+    v.multiplyScalar(aspect < 0.75 ? 1.18 : 1.34);
     v.y = 3.1;
   }
-  // 正侧面是长边镜头：窗口越窄水平视野越小，等比退远让整车轮廓始终完整落在画面里
+  // 正侧面是长边镜头：按实际 fov 反推退远距离，让整车轮廓始终完整落在画面里
   if (p.fit && aspect < SIDE_FIT.aspect) {
     const target = new THREE.Vector3(...p.target);
     const dir = v.clone().sub(target).normalize();
+    const halfTan = Math.tan(THREE.MathUtils.degToRad(targetFov() / 2));
     const dist = Math.min(
       SIDE_FIT.cap,
-      SIDE_FIT.near +
-        (SIDE_FIT.dist - SIDE_FIT.near) * (SIDE_FIT.aspect / aspect),
+      Math.max(SIDE_FIT.dist, SIDE_FIT.extent / (halfTan * aspect)),
     );
     v.copy(target).addScaledVector(dir, dist);
   }
@@ -571,7 +584,7 @@ async function init() {
   scene = new THREE.Scene();
   scene.background = bgDay.clone();
   camera = new THREE.PerspectiveCamera(
-    30,
+    targetFov(),
     host.clientWidth / host.clientHeight,
     0.05,
     2000,
@@ -585,7 +598,7 @@ async function init() {
   controls.dampingFactor = 0.07;
   controls.enablePan = false;
   controls.minDistance = 1.1;
-  controls.maxDistance = 12;
+  controls.maxDistance = 13.5;
   controls.maxPolarAngle = Math.PI * 0.485;
   controls.minPolarAngle = 0.12;
   controls.rotateSpeed = 0.55;
@@ -616,7 +629,7 @@ async function init() {
       s.phi = Math.min(Math.PI * 0.48, s.phi + 0.1);
     else if (["+", "="].includes(e.key))
       s.radius = Math.max(1.1, s.radius * 0.9);
-    else if (e.key === "-") s.radius = Math.min(12, s.radius * 1.1);
+    else if (e.key === "-") s.radius = Math.min(13.5, s.radius * 1.1);
     else handled = false;
     if (handled) {
       e.preventDefault();
@@ -709,17 +722,22 @@ async function init() {
   shadow.position.y = 0.001;
   scene.add(shadow);
   // Native TSL ground reflection, compatible with the WebGPU backend.
-  // Full-res target + MSAA removes the jagged edges; blur rises with distance from the car,
-  // like a real glossy floor: crisp at the contact patch, softly diffused further out.
+  // Blur follows the official webgpu_reflection_blurred example: hashBlur averages N random
+  // taps in a single pass — crisp at the contact patch, softly diffused further out, and
+  // unlike the old mip level() trick there are no mip seams. ReflectorNode samples via
+  // screenUV, so blur radii below are in screen-UV units (0.01 = 1% of the viewport).
   // The reflector re-renders the whole scene every frame, which roughly halves the frame rate on
   // a Retina-class canvas. Flip to false to drop it if that cost ever needs to go.
   const REFLECTION_ENABLED = true;
+  // near = blur radius at the car (contact patch, keep tiny), slope = growth per meter of
+  // distance from the car center, cap = far-field limit. repeats = taps per fragment
+  // (more = smoother noise, direct fragment cost).
+  const REFLECTION_BLUR = { near: 0.003, slope: 0.0018, cap: 0.025, repeats: mobile ? 20 : 40 };
   const reflectionStrength = uniform(0.16);
   let mirror = null;
   if (REFLECTION_ENABLED) {
     const groundReflection = reflector({
       resolutionScale: mobile ? 0.5 : 1,
-      generateMipmaps: true,
       bounces: false,
       samples: mobile ? 0 : 4,
     });
@@ -727,18 +745,19 @@ async function init() {
       transparent: true,
       depthWrite: false,
     });
-    mirrorMaterial.colorNode = groundReflection.level(
-      float(mobile ? 1.7 : 1.5)
-        .add(positionWorld.xz.length().mul(mobile ? 0.11 : 0.08))
-        .min(3.2),
+    mirrorMaterial.colorNode = hashBlur(
+      groundReflection,
+      float(REFLECTION_BLUR.near)
+        .add(positionWorld.xz.length().mul(REFLECTION_BLUR.slope))
+        .min(REFLECTION_BLUR.cap),
+      { repeats: REFLECTION_BLUR.repeats },
     );
     mirrorMaterial.opacityNode = reflectionStrength.mul(
       float(1).sub(positionWorld.xz.length().smoothstep(8, 40)),
     );
-    mirror = new THREE.Mesh(
-      new THREE.PlaneGeometry(2000, 2000),
-      mirrorMaterial,
-    );
+    // 100x100 is enough: opacity fades to 0 at 40m, and a smaller plane keeps the
+    // N-tap blur loop from shading fragments all the way to the horizon.
+    mirror = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), mirrorMaterial);
     mirror.rotation.x = -Math.PI / 2;
     mirror.position.y = 0.002;
     mirror.add(groundReflection.target);
@@ -1714,7 +1733,7 @@ async function init() {
         .add(new THREE.Vector3().setFromSpherical(sph));
       camera.lookAt(focusTarget);
       camera.fov =
-        THREE.MathUtils.lerp(animation.fromFov, 30, e) +
+        THREE.MathUtils.lerp(animation.fromFov, targetFov(), e) +
         Math.sin(Math.PI * e) * 5;
       camera.updateProjectionMatrix();
       if (t === 1) {
@@ -1731,6 +1750,7 @@ async function init() {
       h = host.clientHeight;
     if (!w || !h) return;
     camera.aspect = w / h;
+    camera.fov = targetFov();
     camera.updateProjectionMatrix();
     renderer.setSize(w, h);
   }
